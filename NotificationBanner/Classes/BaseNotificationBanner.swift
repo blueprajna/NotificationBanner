@@ -121,6 +121,9 @@ open class BaseNotificationBanner: UIView {
     /// Wether or not the notification banner is currently being displayed
     public var isDisplaying: Bool = false
 
+    /// The default offset for spacerView top or bottom
+    public var spacerViewOffset: CGFloat = 10.0
+    
     /// The view that the notification layout is presented on. The constraints/frame of this should not be changed
     internal var contentView: UIView!
 
@@ -129,9 +132,6 @@ open class BaseNotificationBanner: UIView {
 
     // The custom view inside the notification banner
     internal var customView: UIView?
-
-    /// The default offset for spacerView top or bottom
-    internal var spacerViewDefaultOffset: CGFloat = 10.0
 
     /// The maximum number of banners simultaneously visible on screen
     internal var maximumVisibleBanners: Int = 1
@@ -144,6 +144,8 @@ open class BaseNotificationBanner: UIView {
 
     /// If this is not nil, then this height will be used instead of the auto calculated height
     internal var customBannerHeight: CGFloat?
+    
+    internal var customHeightAdjustment: CGFloat?
 
     /// Used by the banner queue to determine wether a notification banner was placed in front of it in the queue
     var isSuspended: Bool = false
@@ -229,9 +231,9 @@ open class BaseNotificationBanner: UIView {
 
         spacerView.snp.remakeConstraints { (make) in
             if bannerPosition == .top {
-                make.top.equalToSuperview().offset(-spacerViewDefaultOffset)
+                make.top.equalToSuperview().offset(-spacerViewOffset)
             } else {
-                make.bottom.equalToSuperview().offset(spacerViewDefaultOffset)
+                make.bottom.equalToSuperview().offset(spacerViewOffset)
             }
             make.left.equalToSuperview()
             make.right.equalToSuperview()
@@ -279,8 +281,8 @@ open class BaseNotificationBanner: UIView {
         return bannerQueue.banners.prefix(bannerIndex).reduce(0) { $0
             + $1.bannerHeight
             - (bannerPosition == .top ? spacerViewHeight() : 0) // notch spacer height for top position only
-            + (bannerPosition == .top ? spacerViewDefaultOffset : -spacerViewDefaultOffset) // to reduct additions in createBannerConstraints (it's needed for proper shadow framing)
-            + (bannerPosition == .top ? spacerViewDefaultOffset : -spacerViewDefaultOffset) // default space between banners
+            + (bannerPosition == .top ? spacerViewOffset : -spacerViewOffset) // to reduct additions in createBannerConstraints (it's needed for proper shadow framing)
+            + (bannerPosition == .top ? spacerViewOffset : -spacerViewOffset) // default space between banners
             // this calculations are made only for banners except first one, for first banner it'll be 0
         }
     }
@@ -439,14 +441,22 @@ open class BaseNotificationBanner: UIView {
     /**
         The height adjustment needed in order for the banner to look properly displayed.
      */
-    internal var heightAdjustment: CGFloat {
-        // iOS 13 does not allow covering the status bar on non-notch iPhones
-        // The banner needs to be moved further down under the status bar in this case
-        guard #available(iOS 13.0, *), !NotificationBannerUtilities.isNotchFeaturedIPhone() else {
-            return 0
-        }
+    public var heightAdjustment: CGFloat {
+        get {
+            if let customHeightAdjustment = customHeightAdjustment {
+                return customHeightAdjustment
+            } else {
+                // iOS 13 does not allow covering the status bar on non-notch iPhones
+                // The banner needs to be moved further down under the status bar in this case
+                guard #available(iOS 13.0, *), !NotificationBannerUtilities.isNotchFeaturedIPhone() else {
+                    return 0
+                }
 
-        return UIApplication.shared.statusBarFrame.height
+                return UIApplication.shared.statusBarFrame.height
+            }
+        } set {
+            customHeightAdjustment = newValue
+        }
     }
 
     /**
